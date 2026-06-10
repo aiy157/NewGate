@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   GripVertical, Terminal, Save, PlusCircle, CheckCircle, FolderPlus,
-  Trash2, Link2, AlertCircle, RefreshCw, Eye, X, Globe, LayoutGrid
+  Trash2, Link2, AlertCircle, RefreshCw, Eye, X, Globe, LayoutGrid,
+  Pencil
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import {
@@ -24,7 +25,7 @@ function Toast({ message, type, onClose }) {
   };
   const s = styles[type] || styles.info;
   return (
-    <div className="fixed bottom-6 right-4 z-50 max-w-xs w-full animate-fade-in-up">
+    <div className="fixed bottom-6 right-4 z-50 max-w-xs w-full" style={{ animation: 'fadeUp 0.3s ease both' }}>
       <div className="bg-[#1a2236] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
         <div className={`h-0.5 bg-gradient-to-r ${s.bar}`} />
         <div className="flex items-center gap-3 px-4 py-3">
@@ -32,6 +33,193 @@ function Toast({ message, type, onClose }) {
           <p className="text-sm text-gray-200 font-medium flex-1">{message}</p>
           <button onClick={onClose} className="text-gray-600 hover:text-gray-300 transition-colors"><X size={14} /></button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit Modal ────────────────────────────────────────────────────────────────
+const inp = "w-full bg-[#0d1117] text-gray-200 border border-gray-800 rounded-xl px-3.5 py-2.5 text-sm placeholder:text-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all";
+
+function EditModal({ link, categories, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    title:         link.title         || '',
+    url:           link.url           || '',
+    description:   link.description   || '',
+    category_id:   link.category_id   || '',
+    logo_url:      link.logo_url      || '',
+    facebook_url:  link.facebook_url  || '',
+    instagram_url: link.instagram_url || '',
+    tiktok_url:    link.tiktok_url    || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState('');
+
+  // Close on Escape
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const fn = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', fn);
+    return () => { window.removeEventListener('keydown', fn); document.body.style.overflow = ''; };
+  }, [onClose]);
+
+  const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title || !form.url || !form.category_id) {
+      setError('กรุณากรอก ชื่อ / URL / หมวดหมู่'); return;
+    }
+    setSaving(true);
+    const payload = {
+      title:         form.title.trim(),
+      url:           form.url.trim(),
+      description:   form.description.trim(),
+      category_id:   form.category_id,
+      logo_url:      form.logo_url.trim()      || null,
+      facebook_url:  form.facebook_url.trim()  || null,
+      instagram_url: form.instagram_url.trim() || null,
+      tiktok_url:    form.tiktok_url.trim()    || null,
+    };
+    const { data, error: err } = await supabase
+      .from('links')
+      .update(payload)
+      .eq('id', link.id)
+      .select('*, categories(name)')
+      .single();
+    setSaving(false);
+    if (err) { setError('บันทึกไม่สำเร็จ: ' + err.message); return; }
+    onSaved(data);
+    onClose();
+  };
+
+  return (
+    /* Overlay */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Modal box */}
+      <div
+        className="bg-[#161b22] border border-gray-700 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl"
+        style={{ animation: 'fadeUp 0.25s cubic-bezier(0.22,1,0.36,1) both' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <Pencil size={13} className="text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-gray-100">แก้ไขลิงก์</h2>
+              <p className="text-[10px] text-gray-600 truncate max-w-[280px]">{link.title}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-200 hover:bg-white/5 transition-all"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+
+          {error && (
+            <div className="flex items-center gap-2 text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-xl px-3 py-2.5">
+              <AlertCircle size={13} /> {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">ชื่อองค์กร / เว็บไซต์ *</label>
+              <input required type="text" name="title" value={form.title} onChange={handleChange}
+                className={inp} placeholder="เช่น สำนักทะเบียน" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">หมวดหมู่ *</label>
+              <select required name="category_id" value={form.category_id} onChange={handleChange} className={inp}>
+                <option value="">-- เลือกหมวดหมู่ --</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">URL หลัก (เว็บไซต์) *</label>
+              <input required type="url" name="url" value={form.url} onChange={handleChange}
+                className={inp} placeholder="https://..." />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">URL โลโก้</label>
+              <input type="url" name="logo_url" value={form.logo_url} onChange={handleChange}
+                className={inp} placeholder="https://.../logo.png" />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">คำอธิบาย</label>
+            <textarea name="description" value={form.description} onChange={handleChange}
+              rows={2} className={`${inp} resize-none`} placeholder="อธิบายสั้นๆ..." />
+          </div>
+
+          {/* Social */}
+          <div className="rounded-xl border border-gray-800 bg-[#0d1117] p-4">
+            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-3">📱 ช่องทาง Social</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Facebook</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1877F2] text-xs font-bold">f</span>
+                  <input type="url" name="facebook_url" value={form.facebook_url} onChange={handleChange}
+                    className={`${inp} pl-7`} placeholder="facebook.com/..." />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Instagram</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#E1306C] text-xs font-bold">ig</span>
+                  <input type="url" name="instagram_url" value={form.instagram_url} onChange={handleChange}
+                    className={`${inp} pl-7`} placeholder="instagram.com/..." />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">TikTok</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">tt</span>
+                  <input type="url" name="tiktok_url" value={form.tiktok_url} onChange={handleChange}
+                    className={`${inp} pl-7`} placeholder="tiktok.com/@..." />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-800 hover:border-gray-600 hover:text-gray-300 transition-all">
+              ยกเลิก
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 disabled:text-blue-600 text-white font-bold text-sm py-2.5 rounded-xl transition-all active:scale-[0.98] shadow-[0_4px_16px_rgba(37,99,235,0.3)]">
+              {saving ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  กำลังบันทึก...
+                </>
+              ) : (
+                <><Save size={14} /> บันทึกการแก้ไข</>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -48,20 +236,14 @@ function SortableCategoryItem({ id, name, count, onDelete }) {
         isDragging ? 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'border-gray-800 hover:border-gray-600'
       }`}
     >
-      {/* Drag Handle */}
       <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 hover:bg-white/5 rounded-lg">
         <GripVertical size={16} className="text-gray-600" />
       </div>
-
       <div className="flex-1 flex items-center gap-2 min-w-0">
         <span className="text-gray-300 text-sm font-medium truncate">{name}</span>
         <span className="flex-shrink-0 text-[10px] font-semibold text-gray-600 bg-white/5 px-1.5 py-0.5 rounded-full">{count}</span>
       </div>
-
-      <button
-        onClick={() => onDelete(id, name)}
-        className="flex-shrink-0 p-1.5 text-gray-700 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-      >
+      <button onClick={() => onDelete(id, name)} className="flex-shrink-0 p-1.5 text-gray-700 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
         <Trash2 size={13} />
       </button>
     </div>
@@ -78,8 +260,6 @@ function Field({ label, hint, children }) {
     </div>
   );
 }
-
-const inp = "w-full bg-[#0d1117] text-gray-200 border border-gray-800 rounded-xl px-3.5 py-2.5 text-sm placeholder:text-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all";
 
 // ── Section Card ──────────────────────────────────────────────────────────────
 function Section({ title, icon, accent = 'blue', children }) {
@@ -107,6 +287,7 @@ export default function AdminDashboard() {
   const [toast, setToast]             = useState(null);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [isLoading, setIsLoading]     = useState(true);
+  const [editingLink, setEditingLink] = useState(null); // ← ลิงก์ที่กำลังแก้ไข
 
   const [newCategoryName, setNewCategoryName] = useState('');
   const [linkForm, setLinkForm] = useState({
@@ -158,7 +339,7 @@ export default function AdminDashboard() {
     showToast(`ลบหมวดหมู่ "${name}" แล้ว`, 'info');
   };
 
-  // Drag & Drop → save order
+  // Drag & Drop
   const handleDragEnd = async ({ active, over }) => {
     if (!over || active.id === over.id) return;
     const oldIdx = categories.findIndex(c => c.id === active.id);
@@ -179,8 +360,7 @@ export default function AdminDashboard() {
   const handleSaveLink = async (e) => {
     e.preventDefault();
     if (!linkForm.title || !linkForm.url || !linkForm.category_id) {
-      showToast('กรุณากรอก ชื่อ / URL / หมวดหมู่', 'error');
-      return;
+      showToast('กรุณากรอก ชื่อ / URL / หมวดหมู่', 'error'); return;
     }
     const payload = {
       title:         linkForm.title.trim(),
@@ -208,12 +388,28 @@ export default function AdminDashboard() {
     showToast(`ลบ "${title}" แล้ว`, 'info');
   };
 
+  // ← Update link after edit saved
+  const handleLinkSaved = (updated) => {
+    setLinks(prev => prev.map(l => l.id === updated.id ? updated : l));
+    showToast(`อัปเดต "${updated.title}" สำเร็จ ✓`);
+  };
+
   return (
     <div className="min-h-screen bg-[#0d1117] font-mono">
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
+      {/* Edit Modal */}
+      {editingLink && (
+        <EditModal
+          link={editingLink}
+          categories={categories}
+          onClose={() => setEditingLink(null)}
+          onSaved={handleLinkSaved}
+        />
+      )}
+
       {/* ── Header ── */}
-      <header className="sticky top-0 z-30 bg-[#0d1117]/80 glass border-b border-gray-800">
+      <header className="sticky top-0 z-30 border-b border-gray-800" style={{ background: 'rgba(13,17,23,0.85)', backdropFilter: 'blur(12px)' }}>
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center">
@@ -225,7 +421,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="hidden sm:flex items-center gap-4 text-[11px] text-gray-600">
             <span><span className="text-gray-300 font-bold">{categories.length}</span> หมวดหมู่</span>
             <span><span className="text-gray-300 font-bold">{links.length}</span> ลิงก์</span>
@@ -272,7 +467,6 @@ export default function AdminDashboard() {
           {/* 2. Add Link */}
           <Section title="2 · Deploy Link" icon={<Link2 size={14} />} accent="blue">
             <form onSubmit={handleSaveLink} className="space-y-4">
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="ชื่อองค์กร / เว็บไซต์ *">
                   <input required type="text" name="title" value={linkForm.title} onChange={handleLinkChange}
@@ -302,11 +496,8 @@ export default function AdminDashboard() {
                   rows={2} className={`${inp} resize-none`} placeholder="อธิบายสั้นๆ..." />
               </Field>
 
-              {/* Social Channels */}
-              <div className="rounded-xl border border-gray-800 bg-[#0d1117] p-4 space-y-3">
-                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-3">
-                  📱 ช่องทาง Social (ไม่บังคับ)
-                </p>
+              <div className="rounded-xl border border-gray-800 bg-[#0d1117] p-4">
+                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-3">📱 ช่องทาง Social (ไม่บังคับ)</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Field label="Facebook">
                     <div className="relative">
@@ -373,12 +564,11 @@ export default function AdminDashboard() {
                 <p className="text-xs text-gray-700">ยังไม่มีลิงก์</p>
               </div>
             ) : (
-              <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-0.5">
+              <div className="space-y-1.5 max-h-[520px] overflow-y-auto pr-0.5">
                 {links.map(link => (
                   <div key={link.id}
                     className="group flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:border-gray-700 hover:bg-white/[0.02] transition-all">
 
-                    {/* Color dot */}
                     <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500 opacity-60" />
 
                     <div className="flex-1 min-w-0">
@@ -393,14 +583,26 @@ export default function AdminDashboard() {
                       {link.tiktok_url    && <span className="text-[9px] font-bold text-gray-400 bg-white/5 px-1.5 py-0.5 rounded">tt</span>}
                     </div>
 
-                    {/* Actions */}
+                    {/* ── Action buttons ── */}
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Preview */}
                       <a href={link.url} target="_blank" rel="noopener noreferrer"
-                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-blue-400 rounded-lg hover:bg-blue-400/10 transition-all">
+                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-blue-400 rounded-lg hover:bg-blue-400/10 transition-all"
+                        title="เปิดเว็บไซต์">
                         <Eye size={12} />
                       </a>
+                      {/* ← Edit button */}
+                      <button
+                        onClick={() => setEditingLink(link)}
+                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-amber-400 rounded-lg hover:bg-amber-400/10 transition-all"
+                        title="แก้ไขลิงก์"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      {/* Delete */}
                       <button onClick={() => handleDeleteLink(link.id, link.title)}
-                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-red-400 rounded-lg hover:bg-red-400/10 transition-all">
+                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-red-400 rounded-lg hover:bg-red-400/10 transition-all"
+                        title="ลบลิงก์">
                         <Trash2 size={12} />
                       </button>
                     </div>
