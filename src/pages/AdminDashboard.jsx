@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   GripVertical, Terminal, Save, PlusCircle, CheckCircle, FolderPlus,
   Trash2, Link2, AlertCircle, RefreshCw, Eye, X, Globe, LayoutGrid,
-  Pencil
+  Pencil, ShieldAlert
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import {
@@ -17,25 +17,118 @@ import { CSS } from '@dnd-kit/utilities';
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function Toast({ message, type, onClose }) {
-  useEffect(() => { const t = setTimeout(onClose, 3200); return () => clearTimeout(t); }, [onClose]);
+  useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, [onClose]);
   const styles = {
-    success: { bar: 'from-emerald-400 to-teal-400', icon: <CheckCircle size={15} className="text-emerald-400" /> },
-    error:   { bar: 'from-red-400 to-rose-400',     icon: <AlertCircle  size={15} className="text-red-400"     /> },
-    info:    { bar: 'from-blue-400 to-indigo-400',  icon: <AlertCircle  size={15} className="text-blue-400"    /> },
+    success: { bar: 'from-emerald-400 to-teal-400', icon: <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" /> },
+    error:   { bar: 'from-red-400 to-rose-500',     icon: <AlertCircle  size={16} className="text-red-400 flex-shrink-0"     /> },
+    info:    { bar: 'from-blue-400 to-indigo-400',  icon: <AlertCircle  size={16} className="text-blue-400 flex-shrink-0"    /> },
   };
   const s = styles[type] || styles.info;
   return (
-    <div className="fixed bottom-6 right-4 z-50 max-w-xs w-full" style={{ animation: 'fadeUp 0.3s ease both' }}>
-      <div className="bg-[#1a2236] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+    <div className="fixed bottom-6 right-4 z-50 max-w-sm w-full"
+      style={{ animation: 'fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) both' }}>
+      <div className="bg-[#1e2d45] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
         <div className={`h-0.5 bg-gradient-to-r ${s.bar}`} />
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex items-center gap-3 px-4 py-3.5">
           {s.icon}
-          <p className="text-sm text-gray-200 font-medium flex-1">{message}</p>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-300 transition-colors"><X size={14} /></button>
+          <p className="text-sm text-gray-200 font-medium flex-1 leading-snug">{message}</p>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-300 transition-colors flex-shrink-0 ml-1">
+            <X size={14} />
+          </button>
         </div>
       </div>
     </div>
   );
+}
+
+// ── Custom Confirm Dialog ─────────────────────────────────────────────────────
+function ConfirmDialog({ title, message, confirmLabel = 'ยืนยัน', danger = true, onConfirm, onCancel }) {
+  const cancelBtnRef = useRef(null);
+
+  useEffect(() => {
+    cancelBtnRef.current?.focus();
+    document.body.style.overflow = 'hidden';
+    const fn = (e) => { if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', fn);
+    return () => { window.removeEventListener('keydown', fn); document.body.style.overflow = ''; };
+  }, [onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div
+        className="bg-[#161b22] border border-gray-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden"
+        style={{ animation: 'fadeUp 0.22s cubic-bezier(0.22,1,0.36,1) both' }}
+      >
+        {/* Gradient top bar */}
+        <div className={`h-1 w-full ${danger
+          ? 'bg-gradient-to-r from-red-500 to-rose-500'
+          : 'bg-gradient-to-r from-amber-400 to-orange-500'
+        }`} />
+
+        <div className="p-6">
+          {/* Icon + Text */}
+          <div className="flex items-start gap-4 mb-5">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+              danger
+                ? 'bg-red-500/10 border border-red-500/25'
+                : 'bg-amber-400/10 border border-amber-400/25'
+            }`}>
+              <ShieldAlert size={20} className={danger ? 'text-red-400' : 'text-amber-400'} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-white font-bold text-sm leading-snug">{title}</h3>
+              <p className="text-gray-400 text-xs mt-2 leading-relaxed">{message}</p>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-gray-800 mb-4" />
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              ref={cancelBtnRef}
+              onClick={onCancel}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-gray-200 hover:bg-white/[0.03] transition-all active:scale-95"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={onConfirm}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95 ${
+                danger
+                  ? 'bg-red-600 hover:bg-red-500 shadow-[0_4px_20px_rgba(239,68,68,0.4)]'
+                  : 'bg-amber-500 hover:bg-amber-400 text-gray-950 shadow-[0_4px_20px_rgba(245,158,11,0.4)]'
+              }`}
+            >
+              {confirmLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── useConfirm hook ───────────────────────────────────────────────────────────
+function useConfirm() {
+  const [dialog, setDialog] = useState(null);
+
+  const confirm = useCallback(({ title, message, confirmLabel = 'ยืนยัน', danger = true }) =>
+    new Promise(resolve => {
+      setDialog({
+        title, message, confirmLabel, danger,
+        onConfirm: () => { setDialog(null); resolve(true); },
+        onCancel:  () => { setDialog(null); resolve(false); },
+      });
+    }), []);
+
+  const DialogNode = dialog ? <ConfirmDialog {...dialog} /> : null;
+  return { confirm, DialogNode };
 }
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
@@ -55,7 +148,6 @@ function EditModal({ link, categories, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
-  // Close on Escape
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     const fn = (e) => { if (e.key === 'Escape') onClose(); };
@@ -82,11 +174,8 @@ function EditModal({ link, categories, onClose, onSaved }) {
       tiktok_url:    form.tiktok_url.trim()    || null,
     };
     const { data, error: err } = await supabase
-      .from('links')
-      .update(payload)
-      .eq('id', link.id)
-      .select('*, categories(name)')
-      .single();
+      .from('links').update(payload).eq('id', link.id)
+      .select('*, categories(name)').single();
     setSaving(false);
     if (err) { setError('บันทึกไม่สำเร็จ: ' + err.message); return; }
     onSaved(data);
@@ -94,18 +183,15 @@ function EditModal({ link, categories, onClose, onSaved }) {
   };
 
   return (
-    /* Overlay */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      {/* Modal box */}
       <div
         className="bg-[#161b22] border border-gray-700 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl"
         style={{ animation: 'fadeUp 0.25s cubic-bezier(0.22,1,0.36,1) both' }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
@@ -116,28 +202,22 @@ function EditModal({ link, categories, onClose, onSaved }) {
               <p className="text-[10px] text-gray-600 truncate max-w-[280px]">{link.title}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-200 hover:bg-white/5 transition-all"
-          >
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-200 hover:bg-white/5 transition-all">
             <X size={16} />
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-
           {error && (
             <div className="flex items-center gap-2 text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-xl px-3 py-2.5">
-              <AlertCircle size={13} /> {error}
+              <AlertCircle size={13} className="flex-shrink-0" /> {error}
             </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">ชื่อองค์กร / เว็บไซต์ *</label>
-              <input required type="text" name="title" value={form.title} onChange={handleChange}
-                className={inp} placeholder="เช่น สำนักทะเบียน" />
+              <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">ชื่อองค์กร *</label>
+              <input required type="text" name="title" value={form.title} onChange={handleChange} className={inp} placeholder="เช่น สำนักทะเบียน" />
             </div>
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">หมวดหมู่ *</label>
@@ -150,70 +230,48 @@ function EditModal({ link, categories, onClose, onSaved }) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">URL หลัก (เว็บไซต์) *</label>
-              <input required type="url" name="url" value={form.url} onChange={handleChange}
-                className={inp} placeholder="https://..." />
+              <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">URL หลัก *</label>
+              <input required type="url" name="url" value={form.url} onChange={handleChange} className={inp} placeholder="https://..." />
             </div>
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">URL โลโก้</label>
-              <input type="url" name="logo_url" value={form.logo_url} onChange={handleChange}
-                className={inp} placeholder="https://.../logo.png" />
+              <input type="url" name="logo_url" value={form.logo_url} onChange={handleChange} className={inp} placeholder="https://.../logo.png" />
             </div>
           </div>
 
           <div className="space-y-1">
             <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">คำอธิบาย</label>
-            <textarea name="description" value={form.description} onChange={handleChange}
-              rows={2} className={`${inp} resize-none`} placeholder="อธิบายสั้นๆ..." />
+            <textarea name="description" value={form.description} onChange={handleChange} rows={2} className={`${inp} resize-none`} placeholder="อธิบายสั้นๆ..." />
           </div>
 
-          {/* Social */}
           <div className="rounded-xl border border-gray-800 bg-[#0d1117] p-4">
             <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-3">📱 ช่องทาง Social</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Facebook</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1877F2] text-xs font-bold">f</span>
-                  <input type="url" name="facebook_url" value={form.facebook_url} onChange={handleChange}
-                    className={`${inp} pl-7`} placeholder="facebook.com/..." />
+              {[
+                { name: 'facebook_url',  label: 'Facebook',  prefix: 'f',  color: '#1877F2', ph: 'facebook.com/...' },
+                { name: 'instagram_url', label: 'Instagram', prefix: 'ig', color: '#E1306C', ph: 'instagram.com/...' },
+                { name: 'tiktok_url',    label: 'TikTok',    prefix: 'tt', color: '#888',    ph: 'tiktok.com/@...' },
+              ].map(s => (
+                <div key={s.name} className="space-y-1">
+                  <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{s.label}</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold" style={{ color: s.color }}>{s.prefix}</span>
+                    <input type="url" name={s.name} value={form[s.name]} onChange={handleChange} className={`${inp} pl-7`} placeholder={s.ph} />
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Instagram</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#E1306C] text-xs font-bold">ig</span>
-                  <input type="url" name="instagram_url" value={form.instagram_url} onChange={handleChange}
-                    className={`${inp} pl-7`} placeholder="instagram.com/..." />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">TikTok</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">tt</span>
-                  <input type="url" name="tiktok_url" value={form.tiktok_url} onChange={handleChange}
-                    className={`${inp} pl-7`} placeholder="tiktok.com/@..." />
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-800 hover:border-gray-600 hover:text-gray-300 transition-all">
               ยกเลิก
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 disabled:text-blue-600 text-white font-bold text-sm py-2.5 rounded-xl transition-all active:scale-[0.98] shadow-[0_4px_16px_rgba(37,99,235,0.3)]">
+              className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-sm py-2.5 rounded-xl transition-all active:scale-[0.98] shadow-[0_4px_16px_rgba(37,99,235,0.3)]">
               {saving ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                  </svg>
-                  กำลังบันทึก...
-                </>
+                <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" className="opacity-75"/></svg> กำลังบันทึก...</>
               ) : (
                 <><Save size={14} /> บันทึกการแก้ไข</>
               )}
@@ -282,12 +340,13 @@ function Section({ title, icon, accent = 'blue', children }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
-  const [categories, setCategories]   = useState([]);
-  const [links, setLinks]             = useState([]);
-  const [toast, setToast]             = useState(null);
+  const [categories, setCategories]       = useState([]);
+  const [links, setLinks]                 = useState([]);
+  const [toast, setToast]                 = useState(null);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
-  const [isLoading, setIsLoading]     = useState(true);
-  const [editingLink, setEditingLink] = useState(null); // ← ลิงก์ที่กำลังแก้ไข
+  const [isLoading, setIsLoading]         = useState(true);
+  const [editingLink, setEditingLink]     = useState(null);
+  const { confirm, DialogNode }           = useConfirm();
 
   const [newCategoryName, setNewCategoryName] = useState('');
   const [linkForm, setLinkForm] = useState({
@@ -321,25 +380,29 @@ export default function AdminDashboard() {
     if (!newCategoryName.trim()) return;
     const nextOrder = categories.length > 0 ? Math.max(...categories.map(c => c.order_index)) + 1 : 1;
     const { data, error } = await supabase
-      .from('categories')
-      .insert([{ name: newCategoryName.trim(), order_index: nextOrder }])
-      .select();
+      .from('categories').insert([{ name: newCategoryName.trim(), order_index: nextOrder }]).select();
     if (error) { showToast('เกิดข้อผิดพลาด: ' + error.message, 'error'); return; }
     setCategories(prev => [...prev, data[0]]);
     setNewCategoryName('');
     showToast(`สร้างหมวดหมู่ "${data[0].name}" สำเร็จ`);
   };
 
-  // Delete category
+  // Delete category — ใช้ custom confirm
   const handleDeleteCategory = async (id, name) => {
-    if (!confirm(`ลบหมวดหมู่ "${name}" ใช่หรือไม่?`)) return;
+    const ok = await confirm({
+      title: `ลบหมวดหมู่ "${name}"`,
+      message: 'หมวดหมู่นี้จะถูกลบถาวร ลิงก์ที่อยู่ภายในอาจสูญเสียการจัดหมวดหมู่',
+      confirmLabel: 'ลบออก',
+      danger: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('categories').delete().eq('id', id);
     if (error) { showToast('ลบไม่สำเร็จ: ' + error.message, 'error'); return; }
     setCategories(prev => prev.filter(c => c.id !== id));
     showToast(`ลบหมวดหมู่ "${name}" แล้ว`, 'info');
   };
 
-  // Drag & Drop
+  // Drag & Drop → save order
   const handleDragEnd = async ({ active, over }) => {
     if (!over || active.id === over.id) return;
     const oldIdx = categories.findIndex(c => c.id === active.id);
@@ -379,16 +442,22 @@ export default function AdminDashboard() {
     showToast(`เพิ่ม "${data[0].title}" สำเร็จ ✓`);
   };
 
-  // Delete link
+  // Delete link — ใช้ custom confirm
   const handleDeleteLink = async (id, title) => {
-    if (!confirm(`ลบ "${title}" ใช่หรือไม่?`)) return;
+    const ok = await confirm({
+      title: `ลบลิงก์ "${title}"`,
+      message: 'ลิงก์นี้จะถูกลบออกจากระบบถาวร ไม่สามารถกู้คืนได้',
+      confirmLabel: 'ลบออก',
+      danger: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('links').delete().eq('id', id);
     if (error) { showToast('ลบไม่สำเร็จ: ' + error.message, 'error'); return; }
     setLinks(prev => prev.filter(l => l.id !== id));
     showToast(`ลบ "${title}" แล้ว`, 'info');
   };
 
-  // ← Update link after edit saved
+  // Update link after edit
   const handleLinkSaved = (updated) => {
     setLinks(prev => prev.map(l => l.id === updated.id ? updated : l));
     showToast(`อัปเดต "${updated.title}" สำเร็จ ✓`);
@@ -396,7 +465,11 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0d1117] font-mono">
+      {/* Toast notification */}
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+
+      {/* Custom Confirm Dialog */}
+      {DialogNode}
 
       {/* Edit Modal */}
       {editingLink && (
@@ -409,7 +482,8 @@ export default function AdminDashboard() {
       )}
 
       {/* ── Header ── */}
-      <header className="sticky top-0 z-30 border-b border-gray-800" style={{ background: 'rgba(13,17,23,0.85)', backdropFilter: 'blur(12px)' }}>
+      <header className="sticky top-0 z-30 border-b border-gray-800"
+        style={{ background: 'rgba(13,17,23,0.9)', backdropFilter: 'blur(12px)' }}>
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center">
@@ -450,13 +524,9 @@ export default function AdminDashboard() {
           {/* 1. Create Category */}
           <Section title="1 · Create Directory" icon={<FolderPlus size={14} />} accent="yellow">
             <form onSubmit={handleCreateCategory} className="flex gap-3">
-              <input
-                required type="text"
-                placeholder="ชื่อหมวดหมู่ เช่น ระบบการศึกษา"
-                value={newCategoryName}
-                onChange={e => setNewCategoryName(e.target.value)}
-                className={`${inp} flex-1`}
-              />
+              <input required type="text" placeholder="ชื่อหมวดหมู่ เช่น ระบบการศึกษา"
+                value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)}
+                className={`${inp} flex-1`} />
               <button type="submit"
                 className="flex-shrink-0 flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold text-sm px-4 py-2.5 rounded-xl transition-all active:scale-95">
                 <PlusCircle size={14} /> Mkdir
@@ -499,27 +569,19 @@ export default function AdminDashboard() {
               <div className="rounded-xl border border-gray-800 bg-[#0d1117] p-4">
                 <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-3">📱 ช่องทาง Social (ไม่บังคับ)</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Field label="Facebook">
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1877F2] text-xs font-bold">f</span>
-                      <input type="url" name="facebook_url" value={linkForm.facebook_url} onChange={handleLinkChange}
-                        className={`${inp} pl-7`} placeholder="facebook.com/..." />
-                    </div>
-                  </Field>
-                  <Field label="Instagram">
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#E1306C] text-xs font-bold">ig</span>
-                      <input type="url" name="instagram_url" value={linkForm.instagram_url} onChange={handleLinkChange}
-                        className={`${inp} pl-7`} placeholder="instagram.com/..." />
-                    </div>
-                  </Field>
-                  <Field label="TikTok">
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">tt</span>
-                      <input type="url" name="tiktok_url" value={linkForm.tiktok_url} onChange={handleLinkChange}
-                        className={`${inp} pl-7`} placeholder="tiktok.com/@..." />
-                    </div>
-                  </Field>
+                  {[
+                    { name: 'facebook_url',  label: 'Facebook',  prefix: 'f',  color: '#1877F2', ph: 'facebook.com/...' },
+                    { name: 'instagram_url', label: 'Instagram', prefix: 'ig', color: '#E1306C', ph: 'instagram.com/...' },
+                    { name: 'tiktok_url',    label: 'TikTok',    prefix: 'tt', color: '#888',    ph: 'tiktok.com/@...' },
+                  ].map(s => (
+                    <Field key={s.name} label={s.label}>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold" style={{ color: s.color }}>{s.prefix}</span>
+                        <input type="url" name={s.name} value={linkForm[s.name]} onChange={handleLinkChange}
+                          className={`${inp} pl-7`} placeholder={s.ph} />
+                      </div>
+                    </Field>
+                  ))}
                 </div>
               </div>
 
@@ -545,11 +607,9 @@ export default function AdminDashboard() {
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
                   {categories.map(cat => (
-                    <SortableCategoryItem
-                      key={cat.id} id={cat.id} name={cat.name}
+                    <SortableCategoryItem key={cat.id} id={cat.id} name={cat.name}
                       count={links.filter(l => l.category_id === cat.id).length}
-                      onDelete={handleDeleteCategory}
-                    />
+                      onDelete={handleDeleteCategory} />
                   ))}
                 </SortableContext>
               </DndContext>
@@ -568,41 +628,28 @@ export default function AdminDashboard() {
                 {links.map(link => (
                   <div key={link.id}
                     className="group flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:border-gray-700 hover:bg-white/[0.02] transition-all">
-
                     <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500 opacity-60" />
-
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-300 truncate">{link.title}</p>
                       <p className="text-[10px] text-gray-700 truncate">{link.categories?.name || '—'}</p>
                     </div>
-
-                    {/* Social badges */}
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {link.facebook_url  && <span className="text-[9px] font-bold text-[#1877F2] bg-blue-500/10 px-1.5 py-0.5 rounded">f</span>}
                       {link.instagram_url && <span className="text-[9px] font-bold text-[#E1306C] bg-pink-500/10 px-1.5 py-0.5 rounded">ig</span>}
                       {link.tiktok_url    && <span className="text-[9px] font-bold text-gray-400 bg-white/5 px-1.5 py-0.5 rounded">tt</span>}
                     </div>
-
-                    {/* ── Action buttons ── */}
+                    {/* Action buttons */}
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {/* Preview */}
-                      <a href={link.url} target="_blank" rel="noopener noreferrer"
-                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-blue-400 rounded-lg hover:bg-blue-400/10 transition-all"
-                        title="เปิดเว็บไซต์">
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" title="เปิดเว็บไซต์"
+                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-blue-400 rounded-lg hover:bg-blue-400/10 transition-all">
                         <Eye size={12} />
                       </a>
-                      {/* ← Edit button */}
-                      <button
-                        onClick={() => setEditingLink(link)}
-                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-amber-400 rounded-lg hover:bg-amber-400/10 transition-all"
-                        title="แก้ไขลิงก์"
-                      >
+                      <button onClick={() => setEditingLink(link)} title="แก้ไข"
+                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-amber-400 rounded-lg hover:bg-amber-400/10 transition-all">
                         <Pencil size={12} />
                       </button>
-                      {/* Delete */}
-                      <button onClick={() => handleDeleteLink(link.id, link.title)}
-                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-red-400 rounded-lg hover:bg-red-400/10 transition-all"
-                        title="ลบลิงก์">
+                      <button onClick={() => handleDeleteLink(link.id, link.title)} title="ลบ"
+                        className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-red-400 rounded-lg hover:bg-red-400/10 transition-all">
                         <Trash2 size={12} />
                       </button>
                     </div>
