@@ -26,7 +26,7 @@ function Toast({ message, type, onClose }) {
   const s = styles[type] || styles.info;
   return (
     <div className="fixed bottom-6 right-4 z-50 max-w-sm w-full"
-      style={{ animation: 'fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) both' }}>
+      style={{ animation: 'toastIn 0.38s cubic-bezier(0.22,1,0.36,1) both' }}>
       <div className="bg-[#1e2d45] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
         <div className={`h-0.5 bg-gradient-to-r ${s.bar}`} />
         <div className="flex items-center gap-3 px-4 py-3.5">
@@ -56,12 +56,12 @@ function ConfirmDialog({ title, message, confirmLabel = 'ยืนยัน', da
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', animation: 'overlayIn 0.2s ease both' }}
       onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div
         className="bg-[#161b22] border border-gray-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden"
-        style={{ animation: 'fadeUp 0.22s cubic-bezier(0.22,1,0.36,1) both' }}
+        style={{ animation: 'dialogIn 0.45s cubic-bezier(0.22,1,0.36,1) both' }}
       >
         {/* Gradient top bar */}
         <div className={`h-1 w-full ${danger
@@ -190,7 +190,7 @@ function EditModal({ link, categories, onClose, onSaved }) {
     >
       <div
         className="bg-[#161b22] border border-gray-700 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl"
-        style={{ animation: 'fadeUp 0.25s cubic-bezier(0.22,1,0.36,1) both' }}
+        style={{ animation: 'dialogIn 0.45s cubic-bezier(0.22,1,0.36,1) both' }}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
           <div className="flex items-center gap-2.5">
