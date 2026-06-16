@@ -32,24 +32,47 @@ function pickColor(str = '') {
   return COLORS[Math.abs(h) % COLORS.length];
 }
 function Avatar({ title = '', logoUrl, websiteUrl }) {
-  const [err, setErr] = useState(false);
+  const [srcIndex, setSrcIndex] = useState(0);
   const grad = pickColor(title);
-  let fav = null;
-  try { fav = `https://www.google.com/s2/favicons?sz=64&domain=${new URL(websiteUrl).hostname}`; } catch {}
-  const src = logoUrl || fav;
-  if (src && !err) {
+
+  // Build ordered list of image sources to try
+  const sources = (() => {
+    let hostname = null;
+    try { hostname = new URL(websiteUrl).hostname; } catch {}
+    const list = [];
+    if (logoUrl)   list.push(logoUrl);
+    if (hostname)  list.push(`https://logo.clearbit.com/${hostname}`);
+    if (hostname)  list.push(`https://www.google.com/s2/favicons?sz=128&domain=${hostname}`);
+    return list;
+  })();
+
+  const currentSrc = sources[srcIndex];
+
+  // Try next source on error, until all exhausted → show avatar
+  const handleError = () => setSrcIndex(i => i + 1);
+
+  if (currentSrc) {
     return (
-      <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden border border-slate-200">
-        <img src={src} alt={title} className="w-9 h-9 object-contain" onError={() => setErr(true)} />
+      <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center flex-shrink-0 overflow-hidden border border-slate-200 shadow-sm">
+        <img
+          key={currentSrc}
+          src={currentSrc}
+          alt={title}
+          className="w-full h-full object-contain p-1.5"
+          onError={handleError}
+        />
       </div>
     );
   }
+
+  // Gradient letter avatar fallback
   return (
     <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center flex-shrink-0 text-white text-xl font-bold shadow-sm select-none`}>
       {title[0]?.toUpperCase() ?? '?'}
     </div>
   );
 }
+
 
 // ── Skeleton Card ─────────────────────────────────────────────────────────────
 function Skeleton() {
