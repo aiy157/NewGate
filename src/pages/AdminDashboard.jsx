@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   GripVertical, Terminal, Save, PlusCircle, CheckCircle, FolderPlus,
   Trash2, Link2, AlertCircle, RefreshCw, Eye, X, Globe, LayoutGrid,
-  Pencil, ShieldAlert
+  Pencil, ShieldAlert, PackagePlus, Upload, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import {
@@ -319,6 +319,220 @@ function Field({ label, hint, children }) {
   );
 }
 
+// ── Bulk Import Modal ────────────────────────────────────────────────────────
+const BULK_TEMPLATE = JSON.stringify([
+  {
+    "title": "ชื่อหน่วยงาน",
+    "url": "https://example.com",
+    "description": "คำอธิบายสั้นๆ",
+    "category_id": "ใส่ ID หมวดหมู่จากตารางด้านล่าง"
+  }
+], null, 2);
+
+function BulkImportModal({ categories, onClose, onImported }) {
+  const [json, setJson]           = useState(BULK_TEMPLATE);
+  const [status, setStatus]       = useState(null); // null | 'running' | 'done' | 'error'
+  const [progress, setProgress]   = useState({ done: 0, total: 0, errors: [] });
+  const [showCats, setShowCats]   = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const fn = e => { if (e.key === 'Escape' && status !== 'running') onClose(); };
+    window.addEventListener('keydown', fn);
+    return () => { window.removeEventListener('keydown', fn); document.body.style.overflow = ''; };
+  }, [onClose, status]);
+
+  const handleImport = async () => {
+    let items;
+    try {
+      items = JSON.parse(json);
+      if (!Array.isArray(items)) throw new Error('ต้องเป็น Array [ ]');
+    } catch (e) {
+      setStatus('error');
+      setProgress({ done: 0, total: 0, errors: ['JSON ไม่ถูกต้อง: ' + e.message] });
+      return;
+    }
+
+    const valid = items.filter(i => i.title && i.url && i.category_id);
+    if (valid.length === 0) {
+      setStatus('error');
+      setProgress({ done: 0, total: 0, errors: ['ไม่มีรายการที่มี title + url + category_id ครบ'] });
+      return;
+    }
+
+    setStatus('running');
+    setProgress({ done: 0, total: valid.length, errors: [] });
+
+    const errors = [];
+    const inserted = [];
+
+    for (let i = 0; i < valid.length; i++) {
+      const item = valid[i];
+      const payload = {
+        title:         (item.title         || '').trim(),
+        url:           (item.url           || '').trim(),
+        description:   (item.description   || '').trim(),
+        category_id:    item.category_id,
+        logo_url:      (item.logo_url      || null),
+        facebook_url:  (item.facebook_url  || null),
+        instagram_url: (item.instagram_url || null),
+        tiktok_url:    (item.tiktok_url    || null),
+      };
+      const { data, error } = await supabase
+        .from('links').insert([payload]).select('*, categories(name)');
+      if (error) {
+        errors.push(`[${item.title}]: ${error.message}`);
+      } else {
+        inserted.push(data[0]);
+      }
+      setProgress(p => ({ ...p, done: i + 1, errors }));
+    }
+
+    setStatus('done');
+    if (inserted.length > 0) onImported(inserted);
+  };
+
+  const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', animation: 'overlayIn 0.2s ease both' }}
+      onClick={e => { if (e.target === e.currentTarget && status !== 'running') onClose(); }}>
+
+      <div className="bg-[#161b22] border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+        style={{ animation: 'dialogIn 0.4s cubic-bezier(0.22,1,0.36,1) both' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+              <PackagePlus size={13} className="text-violet-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-gray-100">Bulk Import</h2>
+              <p className="text-[10px] text-gray-600">เพิ่มหลายลิงก์พร้อมกัน ด้วย JSON</p>
+            </div>
+          </div>
+          <button onClick={onClose} disabled={status === 'running'}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-200 hover:bg-white/5 transition-all disabled:opacity-30">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+          {/* Category ID reference */}
+          <div className="rounded-xl border border-gray-800 bg-[#0d1117] overflow-hidden">
+            <button onClick={() => setShowCats(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors">
+              <span>📋 ดู Category ID สำหรับใส่ใน JSON</span>
+              {showCats ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
+            </button>
+            {showCats && (
+              <div className="border-t border-gray-800 px-4 pb-3">
+                <table className="w-full text-[11px] mt-2">
+                  <thead><tr className="text-gray-600"><th className="text-left py-1">ชื่อหมวดหมู่</th><th className="text-left py-1 font-mono">category_id</th></tr></thead>
+                  <tbody>
+                    {categories.map(c => (
+                      <tr key={c.id} className="border-t border-gray-800/50">
+                        <td className="py-1.5 text-gray-300">{c.name}</td>
+                        <td className="py-1.5 font-mono text-amber-400 select-all">{c.id}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* JSON Editor */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+              วาง JSON Array ที่นี่ *
+            </label>
+            <textarea
+              value={json}
+              onChange={e => { setJson(e.target.value); setStatus(null); }}
+              disabled={status === 'running'}
+              rows={12}
+              spellCheck={false}
+              className="w-full bg-[#0d1117] text-green-300 font-mono text-xs border border-gray-800 rounded-xl px-4 py-3 focus:outline-none focus:border-violet-500 resize-none disabled:opacity-50 leading-relaxed"
+              placeholder={BULK_TEMPLATE}
+            />
+          </div>
+
+          {/* JSON fields reference */}
+          <div className="text-[11px] text-gray-700 leading-relaxed">
+            <span className="text-gray-500 font-semibold">Fields ที่ใช้ได้:</span>{' '}
+            <code className="text-amber-400">title*</code>{' '}
+            <code className="text-amber-400">url*</code>{' '}
+            <code className="text-amber-400">category_id*</code>{' '}
+            <code className="text-gray-600">description</code>{' '}
+            <code className="text-gray-600">logo_url</code>{' '}
+            <code className="text-gray-600">facebook_url</code>{' '}
+            <code className="text-gray-600">instagram_url</code>{' '}
+            <code className="text-gray-600">tiktok_url</code>
+          </div>
+
+          {/* Progress */}
+          {status === 'running' && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>กำลัง import...</span>
+                <span>{progress.done} / {progress.total}</span>
+              </div>
+              <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-violet-500 to-blue-500 rounded-full transition-all duration-300"
+                  style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          )}
+
+          {/* Done */}
+          {status === 'done' && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 space-y-1">
+              <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+                <CheckCircle size={15}/>
+                Import เสร็จสิ้น — {progress.done - progress.errors.length} รายการสำเร็จ
+              </div>
+              {progress.errors.length > 0 && (
+                <div className="text-xs text-red-400 mt-2 space-y-0.5">
+                  {progress.errors.map((e, i) => <div key={i}>⚠ {e}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Error */}
+          {status === 'error' && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+              <div className="flex items-center gap-2 text-red-400 text-xs font-semibold">
+                <AlertCircle size={13}/> {progress.errors[0]}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-5 py-4 border-t border-gray-800 flex-shrink-0">
+          <button onClick={onClose} disabled={status === 'running'}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-800 hover:border-gray-600 hover:text-gray-300 transition-all disabled:opacity-30">
+            {status === 'done' ? 'ปิด' : 'ยกเลิก'}
+          </button>
+          {status !== 'done' && (
+            <button onClick={handleImport} disabled={status === 'running'}
+              className="flex-1 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:bg-violet-900 disabled:text-violet-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all active:scale-[0.98] shadow-[0_4px_16px_rgba(139,92,246,0.35)]">
+              {status === 'running'
+                ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" className="opacity-75"/></svg> กำลัง Import...</>
+                : <><Upload size={14}/> เริ่ม Import</>}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Section Card ──────────────────────────────────────────────────────────────
 function Section({ title, icon, accent = 'blue', children }) {
   const accents = {
@@ -343,10 +557,11 @@ export default function AdminDashboard() {
   const [categories, setCategories]       = useState([]);
   const [links, setLinks]                 = useState([]);
   const [toast, setToast]                 = useState(null);
-  const [isSavingOrder, setIsSavingOrder] = useState(false);
-  const [isLoading, setIsLoading]         = useState(true);
-  const [editingLink, setEditingLink]     = useState(null);
-  const { confirm, DialogNode }           = useConfirm();
+  const [isSavingOrder, setIsSavingOrder]   = useState(false);
+  const [isLoading, setIsLoading]           = useState(true);
+  const [editingLink, setEditingLink]       = useState(null);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const { confirm, DialogNode }             = useConfirm();
 
   const [newCategoryName, setNewCategoryName] = useState('');
   const [linkForm, setLinkForm] = useState({
@@ -463,6 +678,12 @@ export default function AdminDashboard() {
     showToast(`อัปเดต "${updated.title}" สำเร็จ ✓`);
   };
 
+  // Bulk import callback
+  const handleBulkImported = (inserted) => {
+    setLinks(prev => [...inserted, ...prev]);
+    showToast(`Import สำเร็จ ${inserted.length} รายการ ✓`);
+  };
+
   return (
     <div className="min-h-screen bg-[#0d1117] font-mono">
       {/* Toast notification */}
@@ -470,6 +691,15 @@ export default function AdminDashboard() {
 
       {/* Custom Confirm Dialog */}
       {DialogNode}
+
+      {/* Bulk Import Modal */}
+      {bulkImportOpen && (
+        <BulkImportModal
+          categories={categories}
+          onClose={() => setBulkImportOpen(false)}
+          onImported={handleBulkImported}
+        />
+      )}
 
       {/* Edit Modal */}
       {editingLink && (
@@ -505,6 +735,12 @@ export default function AdminDashboard() {
               className="flex items-center gap-1.5 text-[11px] text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg border border-gray-800 hover:border-gray-600 transition-all">
               <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
               <span className="hidden sm:inline">รีเฟรช</span>
+            </button>
+            {/* Bulk Import Button */}
+            <button onClick={() => setBulkImportOpen(true)}
+              className="flex items-center gap-1.5 text-[11px] text-violet-400 hover:text-violet-300 px-3 py-1.5 rounded-lg border border-violet-800/60 hover:border-violet-600 bg-violet-500/5 hover:bg-violet-500/10 transition-all">
+              <PackagePlus size={12} />
+              <span className="hidden sm:inline">Bulk Import</span>
             </button>
             <a href="/" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-[11px] text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg border border-gray-800 hover:border-gray-600 transition-all">
