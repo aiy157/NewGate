@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Menu, X, Search, ExternalLink, Globe } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
@@ -35,46 +35,42 @@ function Avatar({ title = '', logoUrl, websiteUrl }) {
   const [srcIndex, setSrcIndex] = useState(0);
   const grad = pickColor(title);
 
-  // Build ordered list of image sources to try
-  const sources = (() => {
+  // ── Build sources list (only APIs that return real 404 on miss) ──
+  const sources = useMemo(() => {
     let hostname = null;
     try { hostname = new URL(websiteUrl).hostname; } catch {}
     const list = [];
 
-    // 1. Manual logo URL (highest priority)
+    // 1. Manual logo_url from DB (highest priority)
     if (logoUrl) list.push(logoUrl);
 
     if (hostname) {
-      // 2. Clearbit — good for well-known commercial domains
+      // 2. Clearbit — returns real 404 for unknown domains ✅
       list.push(`https://logo.clearbit.com/${hostname}`);
 
-      // 3. Direct favicon.ico from the website itself
-      list.push(`https://${hostname}/favicon.ico`);
-
-      // 4. DuckDuckGo favicon — returns 404 when not found (safe!)
+      // 3. DuckDuckGo — returns real 404 when not found ✅
       list.push(`https://icons.duckduckgo.com/ip3/${hostname}.ico`);
 
-      // 5. Root domain fallback for subdomains
-      //    e.g. agri.ubu.ac.th → try ubu.ac.th favicon
+      // 4. Root domain fallback (e.g. agri.ubu.ac.th → ubu.ac.th)
       const parts = hostname.split('.');
       if (parts.length > 2) {
-        const rootDomain = parts.slice(-2).join('.');
-        list.push(`https://${rootDomain}/favicon.ico`);
-        list.push(`https://logo.clearbit.com/${rootDomain}`);
-        list.push(`https://icons.duckduckgo.com/ip3/${rootDomain}.ico`);
+        const root = parts.slice(-2).join('.');
+        list.push(`https://logo.clearbit.com/${root}`);
+        list.push(`https://icons.duckduckgo.com/ip3/${root}.ico`);
       }
+
+      // NOTE: favicon.ico intentionally excluded —
+      // many servers redirect /favicon.ico to HTML (HTTP 200),
+      // which the browser accepts but cannot render as image,
+      // silently breaking the onError fallback chain.
     }
-
-    // NOTE: Google Favicon API intentionally excluded —
-    // it returns a globe placeholder image (not 404) when
-    // favicon is missing, which breaks the fallback chain.
-
     return list;
-  })();
+  }, [logoUrl, websiteUrl]);
+
+  // ── Reset index whenever logo/url changes ──
+  useEffect(() => { setSrcIndex(0); }, [logoUrl, websiteUrl]);
 
   const currentSrc = sources[srcIndex];
-
-  // Try next source on error; when all exhausted → gradient avatar
   const handleError = () => setSrcIndex(i => i + 1);
 
   if (currentSrc) {
@@ -91,7 +87,7 @@ function Avatar({ title = '', logoUrl, websiteUrl }) {
     );
   }
 
-  // Gradient letter avatar — final fallback
+  // ── Gradient letter avatar — final fallback ──
   return (
     <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center flex-shrink-0 text-white text-xl font-bold shadow-sm select-none`}>
       {title[0]?.toUpperCase() ?? '?'}
@@ -101,6 +97,7 @@ function Avatar({ title = '', logoUrl, websiteUrl }) {
 
 
 // ── Skeleton Card ─────────────────────────────────────────────────────────────
+
 function Skeleton() {
   return (
     <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
