@@ -31,24 +31,6 @@ function pickColor(str = '') {
   for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
   return COLORS[Math.abs(h) % COLORS.length];
 }
-// UBU subdomain → Facebook page name map (for auto logo detection)
-const UBU_FB_MAP = {
-  'agri.ubu.ac.th':    'agri.ubu',
-  'eng.ubu.ac.th':     'UBUengineering',
-  'sci.ubu.ac.th':     'science.ubu',
-  'la.ubu.ac.th':      'LiberalArtsUBU',
-  'pha.ubu.ac.th':     'pharmubu',
-  'ubs.ubu.ac.th':     'bus.ubu.ac.th',
-  'nurse.ubu.ac.th':   'www.nurse.ubu.ac.th',
-  'law.ubu.ac.th':     'lawUBU',
-  'pol.ubu.ac.th':     'polsciubu',
-  'ap.ubu.ac.th':      'APA.UBU',
-  'cmph.ubu.ac.th':    'cmph.ubu',
-  'entry.ubu.ac.th':   'EntryUBU',
-  'inter.ubu.ac.th':   'UBU.Inter',
-};
-const UBU_MAIN_FB = 'UbonRatchathaniUniversity';
-
 function Avatar({ title = '', logoUrl, websiteUrl }) {
   const [srcIndex, setSrcIndex] = useState(0);
   const grad = pickColor(title);
@@ -58,44 +40,36 @@ function Avatar({ title = '', logoUrl, websiteUrl }) {
     try { hostname = new URL(websiteUrl).hostname; } catch {}
     const list = [];
 
-    // 1. logo_url from DB (admin-set, highest priority)
+    // 1. logo_url set by admin in DB — always trust this
     if (logoUrl) list.push(logoUrl);
 
     if (hostname) {
-      // 2. UBU faculty map — direct Facebook Graph logo (no SQL needed)
-      const fbPage = UBU_FB_MAP[hostname]
-        || (hostname.endsWith('.ubu.ac.th') ? UBU_MAIN_FB : null);
-      if (fbPage) {
-        list.push(`https://graph.facebook.com/${fbPage}/picture?type=large`);
-      }
-
-      // 3. Clearbit — works for well-known commercial domains
+      // 2. Clearbit — returns real 404 for unknown domains
       list.push(`https://logo.clearbit.com/${hostname}`);
 
-      // 3. DuckDuckGo — returns real 404 when not found ✅
+      // 3. DuckDuckGo favicon — caches & returns 404 cleanly
       list.push(`https://icons.duckduckgo.com/ip3/${hostname}.ico`);
 
-      // 4. Root domain fallback (e.g. agri.ubu.ac.th → ubu.ac.th)
+      // 4. Root domain fallback for subdomains
+      //    e.g. agri.ubu.ac.th → ubu.ac.th
       const parts = hostname.split('.');
       if (parts.length > 2) {
         const root = parts.slice(-2).join('.');
         list.push(`https://logo.clearbit.com/${root}`);
         list.push(`https://icons.duckduckgo.com/ip3/${root}.ico`);
       }
-
-      // NOTE: favicon.ico intentionally excluded —
-      // many servers redirect /favicon.ico to HTML (HTTP 200),
-      // which the browser accepts but cannot render as image,
-      // silently breaking the onError fallback chain.
     }
+    // ⚠️ Facebook Graph API excluded — returns JSON error as HTTP 200,
+    //    which silently breaks onError (browser shows alt text, not fallback).
+    // ⚠️ favicon.ico excluded — many servers redirect to HTML (HTTP 200),
+    //    causing the same silent broken state.
     return list;
   }, [logoUrl, websiteUrl]);
 
-  // ── Reset index whenever logo/url changes ──
+  // Reset index whenever URL or logo changes
   useEffect(() => { setSrcIndex(0); }, [logoUrl, websiteUrl]);
 
   const currentSrc = sources[srcIndex];
-  const handleError = () => setSrcIndex(i => i + 1);
 
   if (currentSrc) {
     return (
@@ -103,24 +77,26 @@ function Avatar({ title = '', logoUrl, websiteUrl }) {
         <img
           key={currentSrc}
           src={currentSrc}
-          alt={title}
+          alt=""
           className="w-full h-full object-contain p-1.5"
-          onError={handleError}
+          onError={() => setSrcIndex(i => i + 1)}
         />
       </div>
     );
   }
 
-  // ── Gradient letter avatar — final fallback ──
+  // Gradient letter avatar — shows instantly when all sources exhausted
   return (
     <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center flex-shrink-0 text-white text-xl font-bold shadow-sm select-none`}>
-      {title[0]?.toUpperCase() ?? '?'}
+      {title.trim()[0]?.toUpperCase() ?? '?'}
     </div>
   );
 }
 
 
+
 // ── Skeleton Card ─────────────────────────────────────────────────────────────
+
 
 function Skeleton() {
   return (
