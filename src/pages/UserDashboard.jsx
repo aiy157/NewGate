@@ -31,21 +31,45 @@ function pickColor(str = '') {
   for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
   return COLORS[Math.abs(h) % COLORS.length];
 }
+// UBU subdomain → Facebook page name map (for auto logo detection)
+const UBU_FB_MAP = {
+  'agri.ubu.ac.th':    'agri.ubu',
+  'eng.ubu.ac.th':     'UBUengineering',
+  'sci.ubu.ac.th':     'science.ubu',
+  'la.ubu.ac.th':      'LiberalArtsUBU',
+  'pha.ubu.ac.th':     'pharmubu',
+  'ubs.ubu.ac.th':     'bus.ubu.ac.th',
+  'nurse.ubu.ac.th':   'www.nurse.ubu.ac.th',
+  'law.ubu.ac.th':     'lawUBU',
+  'pol.ubu.ac.th':     'polsciubu',
+  'ap.ubu.ac.th':      'APA.UBU',
+  'cmph.ubu.ac.th':    'cmph.ubu',
+  'entry.ubu.ac.th':   'EntryUBU',
+  'inter.ubu.ac.th':   'UBU.Inter',
+};
+const UBU_MAIN_FB = 'UbonRatchathaniUniversity';
+
 function Avatar({ title = '', logoUrl, websiteUrl }) {
   const [srcIndex, setSrcIndex] = useState(0);
   const grad = pickColor(title);
 
-  // ── Build sources list (only APIs that return real 404 on miss) ──
   const sources = useMemo(() => {
     let hostname = null;
     try { hostname = new URL(websiteUrl).hostname; } catch {}
     const list = [];
 
-    // 1. Manual logo_url from DB (highest priority)
+    // 1. logo_url from DB (admin-set, highest priority)
     if (logoUrl) list.push(logoUrl);
 
     if (hostname) {
-      // 2. Clearbit — returns real 404 for unknown domains ✅
+      // 2. UBU faculty map — direct Facebook Graph logo (no SQL needed)
+      const fbPage = UBU_FB_MAP[hostname]
+        || (hostname.endsWith('.ubu.ac.th') ? UBU_MAIN_FB : null);
+      if (fbPage) {
+        list.push(`https://graph.facebook.com/${fbPage}/picture?type=large`);
+      }
+
+      // 3. Clearbit — works for well-known commercial domains
       list.push(`https://logo.clearbit.com/${hostname}`);
 
       // 3. DuckDuckGo — returns real 404 when not found ✅
