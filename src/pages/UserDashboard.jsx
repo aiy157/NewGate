@@ -40,15 +40,41 @@ function Avatar({ title = '', logoUrl, websiteUrl }) {
     let hostname = null;
     try { hostname = new URL(websiteUrl).hostname; } catch {}
     const list = [];
-    if (logoUrl)   list.push(logoUrl);
-    if (hostname)  list.push(`https://logo.clearbit.com/${hostname}`);
-    if (hostname)  list.push(`https://www.google.com/s2/favicons?sz=128&domain=${hostname}`);
+
+    // 1. Manual logo URL (highest priority)
+    if (logoUrl) list.push(logoUrl);
+
+    if (hostname) {
+      // 2. Clearbit — good for well-known commercial domains
+      list.push(`https://logo.clearbit.com/${hostname}`);
+
+      // 3. Direct favicon.ico from the website itself
+      list.push(`https://${hostname}/favicon.ico`);
+
+      // 4. DuckDuckGo favicon — returns 404 when not found (safe!)
+      list.push(`https://icons.duckduckgo.com/ip3/${hostname}.ico`);
+
+      // 5. Root domain fallback for subdomains
+      //    e.g. agri.ubu.ac.th → try ubu.ac.th favicon
+      const parts = hostname.split('.');
+      if (parts.length > 2) {
+        const rootDomain = parts.slice(-2).join('.');
+        list.push(`https://${rootDomain}/favicon.ico`);
+        list.push(`https://logo.clearbit.com/${rootDomain}`);
+        list.push(`https://icons.duckduckgo.com/ip3/${rootDomain}.ico`);
+      }
+    }
+
+    // NOTE: Google Favicon API intentionally excluded —
+    // it returns a globe placeholder image (not 404) when
+    // favicon is missing, which breaks the fallback chain.
+
     return list;
   })();
 
   const currentSrc = sources[srcIndex];
 
-  // Try next source on error, until all exhausted → show avatar
+  // Try next source on error; when all exhausted → gradient avatar
   const handleError = () => setSrcIndex(i => i + 1);
 
   if (currentSrc) {
@@ -65,7 +91,7 @@ function Avatar({ title = '', logoUrl, websiteUrl }) {
     );
   }
 
-  // Gradient letter avatar fallback
+  // Gradient letter avatar — final fallback
   return (
     <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center flex-shrink-0 text-white text-xl font-bold shadow-sm select-none`}>
       {title[0]?.toUpperCase() ?? '?'}
