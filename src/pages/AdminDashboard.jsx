@@ -759,12 +759,19 @@ export default function AdminDashboard() {
               <PackagePlus size={12} />
               <span className="hidden sm:inline">Bulk Import</span>
             </button>
+            {/* All Links Editor */}
+            <a href={`${import.meta.env.VITE_ADMIN_SECRET_PATH || '/14082507'}/alllinkforedit`}
+              className="flex items-center gap-1.5 text-[11px] text-blue-400 hover:text-blue-300 px-3 py-1.5 rounded-lg border border-blue-800/60 hover:border-blue-600 bg-blue-500/5 hover:bg-blue-500/10 transition-all">
+              <LayoutGrid size={12} />
+              <span className="hidden sm:inline">จัดการลิงก์</span>
+            </a>
             <a href="/" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-[11px] text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg border border-gray-800 hover:border-gray-600 transition-all">
               <Eye size={12} />
               <span className="hidden sm:inline">หน้า User</span>
             </a>
           </div>
+
         </div>
       </header>
 

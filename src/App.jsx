@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import AllLinksEditor from './pages/AllLinksEditor';
 
 // อ่าน Admin URL จาก Environment Variable (ปลอดภัยกว่าการ Hard-code)
 const SECRET_ADMIN_URL = import.meta.env.VITE_ADMIN_SECRET_PATH || "/14082507";
@@ -14,6 +15,9 @@ function App() {
 
         {/* หน้า Admin (URL ลับ) */}
         <Route path={SECRET_ADMIN_URL} element={<AdminDashboard />} />
+
+        {/* หน้าจัดการลิงก์ทั้งหมด */}
+        <Route path={`${SECRET_ADMIN_URL}/alllinkforedit`} element={<AllLinksEditor />} />
 
         {/* 404 */}
         <Route
