@@ -58,6 +58,11 @@ function Avatar({ title = '', logoUrl, websiteUrl }) {
         list.push(`https://logo.clearbit.com/${root}`);
         list.push(`https://icons.duckduckgo.com/ip3/${root}.ico`);
       }
+
+      // 5. UBU official logo — fallback for any *.ubu.ac.th with no logo
+      if (hostname.endsWith('.ubu.ac.th') || hostname === 'ubu.ac.th') {
+        list.push('https://upload.wikimedia.org/wikipedia/commons/8/87/Ubon_Ratchathani_Univ_Emblem.svg');
+      }
     }
     // ⚠️ Facebook Graph API excluded — returns JSON error as HTTP 200,
     //    which silently breaks onError (browser shows alt text, not fallback).
