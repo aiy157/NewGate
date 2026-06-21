@@ -144,6 +144,7 @@ function EditModal({ link, categories, onClose, onSaved }) {
     facebook_url:  link.facebook_url  || '',
     instagram_url: link.instagram_url || '',
     tiktok_url:    link.tiktok_url    || '',
+    order_index:   link.order_index   ?? 999,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
@@ -172,6 +173,7 @@ function EditModal({ link, categories, onClose, onSaved }) {
       facebook_url:  form.facebook_url.trim()  || null,
       instagram_url: form.instagram_url.trim() || null,
       tiktok_url:    form.tiktok_url.trim()    || null,
+      order_index:   parseInt(form.order_index) || 999,
     };
     const { data, error: err } = await supabase
       .from('links').update(payload).eq('id', link.id)
@@ -237,6 +239,21 @@ function EditModal({ link, categories, onClose, onSaved }) {
               <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">URL โลโก้</label>
               <input type="url" name="logo_url" value={form.logo_url} onChange={handleChange} className={inp} placeholder="https://.../logo.png" />
             </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+              <span className="text-amber-400 text-sm font-bold">#</span>
+            </div>
+            <div className="flex-1">
+              <label className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block mb-1">ลำดับการแสดงผล</label>
+              <p className="text-[10px] text-gray-600">ตัวเลขน้อย = ขึ้นก่อน &nbsp;|&nbsp; 1 = สำคัญสุด &nbsp;|&nbsp; 999 = ท้ายสุด</p>
+            </div>
+            <input
+              type="number" name="order_index" value={form.order_index}
+              onChange={handleChange} min={1} max={9999}
+              className="w-20 text-center bg-[#0d1117] border border-gray-700 rounded-xl px-2 py-2 text-sm font-bold text-amber-300 focus:outline-none focus:border-amber-500"
+            />
           </div>
 
           <div className="space-y-1">

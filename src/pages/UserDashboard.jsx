@@ -206,7 +206,7 @@ export default function UserDashboard() {
     setLoading(true);
     const [c, l] = await Promise.all([
       supabase.from('categories').select('*').order('order_index'),
-      supabase.from('links').select('*, categories(name)').order('created_at', { ascending: false }),
+      supabase.from('links').select('*, categories(name)').order('order_index', { ascending: true }).order('created_at', { ascending: false }),
     ]);
     if (!c.error) setCategories(c.data ?? []);
     if (!l.error) setLinks(l.data ?? []);
