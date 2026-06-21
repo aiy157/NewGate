@@ -407,23 +407,59 @@ export default function UserDashboard() {
             </p>
           </div>
 
-          {/* Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {loading
-              ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} />)
-              : filtered.length === 0
-                ? (
-                  <div className="col-span-full flex flex-col items-center justify-center py-24 text-center">
-                    <div className="w-20 h-20 rounded-3xl bg-slate-100 flex items-center justify-center mb-4">
-                      <Globe size={36} className="text-slate-300" />
+          {loading ? (
+            /* Skeleton */
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} />)}
+            </div>
+
+          ) : filtered.length === 0 ? (
+            /* Empty state */
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="w-20 h-20 rounded-3xl bg-slate-100 flex items-center justify-center mb-4">
+                <Globe size={36} className="text-slate-300" />
+              </div>
+              <p className="font-semibold text-slate-400">{query ? `ไม่พบ "${query}"` : 'ยังไม่มีข้อมูล'}</p>
+            </div>
+
+          ) : (!selectedCatId && !query) ? (
+            /* ── GROUPED VIEW (ทั้งหมด) ── */
+            <div className="space-y-10">
+              {categories.map(cat => {
+                const catLinks = links.filter(l => l.category_id === cat.id);
+                if (catLinks.length === 0) return null;
+                return (
+                  <section key={cat.id}>
+                    {/* Section header */}
+                    <div className="flex items-center gap-3 mb-4 cursor-pointer group" onClick={() => selectCat(cat.id)}>
+                      <h3 className="font-bold text-slate-700 text-[15px] group-hover:text-blue-700 transition-colors">
+                        {cat.name}
+                      </h3>
+                      <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                        {catLinks.length}
+                      </span>
+                      <div className="flex-1 h-px bg-slate-100" />
+                      <span className="text-[11px] text-slate-400 group-hover:text-blue-600 transition-colors flex-shrink-0">
+                        ดูทั้งหมด →
+                      </span>
                     </div>
-                    <p className="font-semibold text-slate-400">{query ? `ไม่พบ "${query}"` : 'ยังไม่มีข้อมูล'}</p>
-                  </div>
-                )
-                : filtered.map((link, i) => <Card key={link.id} link={link} idx={i} />)
-            }
-          </div>
+                    {/* Cards grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {catLinks.map((link, i) => <Card key={link.id} link={link} idx={i} />)}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+
+          ) : (
+            /* ── FLAT VIEW (specific category / search) ── */
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filtered.map((link, i) => <Card key={link.id} link={link} idx={i} />)}
+            </div>
+          )}
         </main>
+
       </div>
 
       {/* ══════════════════════ FOOTER ════════════════════════════════════ */}
